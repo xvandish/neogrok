@@ -28,7 +28,7 @@ const router = createBrowserRouter(
       <Route path="/repositories" lazy={() => import("./repositories-page")} />
 
       {/* livegrep compatability routes */}
-      <Route path="/search/*" element={<NotYetImplementedPage />} />
+      <Route path="/search/*" lazy={() => import("./livegrep-search")} />
       <Route path="/view/*" lazy={() => import("./livegrep-fileviewer-redirect-page")} />
       <Route path="/delve/*" lazy={() => import("./livegrep-fileviewer-redirect-page")} />
       <Route path="/experimental/*" lazy={() => import("./livegrep-fileviewer-redirect-page")} />
