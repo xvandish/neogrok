@@ -2,19 +2,14 @@
 
 Neogrok is a frontend for [zoekt](https://github.com/sourcegraph/zoekt), a fast
 and scalable code search engine. Neogrok exposes zoekt's search APIs in the form
-of a modern, snappy UI.
+of a modern, snappy UI. This fork contains minor differences, notably livegrep
+backwards compatibility, rather than OpenGrok.
 
-There is a [demo deployment](./demo) at https://neogrok-demo-web.fly.dev/. This
-deployment's configuration can serve as a guide for your own deployments of
-neogrok; currently there are no packaged distributions.
+## livegrep compatibility
 
-## OpenGrok compatibility
-
-As an added bonus, neogrok can serve as a replacement for existing deployments
-of [OpenGrok](https://oracle.github.io/opengrok/), a much older, more intricate,
-slower, and generally jankier code search engine than zoekt. Neogrok strives to
-provide URL compatibility with OpenGrok by redirecting OpenGrok URLs to their
-neogrok equivalents: simply deploy neogrok at the same origin previously hosting
-your OpenGrok instance, and everything will Just Work™. (Perfect compatibility
-is not possible as the feature sets of each search engine do not map
-one-to-one.)
+To aid in a transition from livegrep to Zoekt, a few of the UI routes from my
+fork of livegrep [xvandish-livegrep](https://github.com/xvandish/livegrep) have
+compatibility redirects or notices, namely the `/search` `/view`, `/delve` and
+`/experimental` routes, which were used to provide search and fileview
+functionailty. Fileviewing is now just handed off to GitHub, and search brings
+up a page with some hints and links to rewritten Zoekt queries.
