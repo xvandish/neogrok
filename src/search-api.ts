@@ -30,6 +30,7 @@ export const search = async (
       MaxDocDisplayCount: files,
       ShardMaxMatchCount: matchesPerShard,
       TotalMaxMatchCount: totalMatches,
+      IncludeRepoURLsAndLineFragments: false,
     },
   });
 
@@ -138,8 +139,6 @@ const searchResultSchema = z.object({
         )
         .nullable()
         .transform((val) => val ?? []),
-      RepoURLs: z.record(z.string()),
-      LineFragments: z.record(z.string()),
     })
     .transform(
       ({
@@ -148,16 +147,12 @@ const searchResultSchema = z.object({
         MatchCount,
         FilesSkipped,
         Files,
-        RepoURLs,
-        LineFragments,
       }) => ({
         duration: Duration,
         fileCount: FileCount,
         matchCount: MatchCount,
         filesSkipped: FilesSkipped,
         files: Files,
-        repoUrls: RepoURLs,
-        repoLineNumberFragments: LineFragments,
       })
     ),
 });

@@ -584,8 +584,6 @@ const SearchResults = memo(function SearchResults({
     filesSkipped,
     duration,
     files,
-    repoUrls,
-    repoLineNumberFragments,
     requestDuration,
   },
 }: {
@@ -632,8 +630,6 @@ const SearchResults = memo(function SearchResults({
           <SearchResultsFile
             key={`${repository}/${fileName}`}
             file={file}
-            fileUrlTemplate={repoUrls[repository]}
-            lineNumberTemplate={repoLineNumberFragments[repository]}
             rank={i + 1}
           />
         );
@@ -644,13 +640,9 @@ const SearchResults = memo(function SearchResults({
 
 const SearchResultsFile = ({
   file: { repository, fileName, branches, language, chunks, version },
-  fileUrlTemplate,
-  lineNumberTemplate,
   rank,
 }: {
   file: ResultFile;
-  fileUrlTemplate: string | undefined;
-  lineNumberTemplate: string | undefined;
   rank: number;
 }) => {
   // Search results may match not only on file contents but also the filename itself.
@@ -665,9 +657,14 @@ const SearchResultsFile = ({
     );
   }
 
-  const fileUrl = fileUrlTemplate
-    ?.replaceAll("{{.Version}}", version)
-    .replaceAll("{{.Path}}", fileName);
+  let fileUrl = "";
+  let repoUrl = "";
+  // we assume a github codehost
+  if (repository.startsWith("github.com/")) {
+    fileUrl = "https://" + repository + "/blob/" + version + "/" + fileName;
+    repoUrl = "https://" + repository;
+  }
+
 
   let renderedFileName;
   if (fileNameChunks.length === 1) {
@@ -692,6 +689,8 @@ const SearchResultsFile = ({
   ) : (
     renderedFileName
   );
+
+  const linkedReponame = 
 
   const { matchSortOrder, fileMatchesCutoff } = useContext(Preferences);
   const nonFileNameMatches = chunks.filter(
@@ -806,13 +805,10 @@ const SearchResultsFile = ({
               >
                 {lines.map(({ lineNumber, lineTokens }) => {
                   const linkedLineNumber =
-                    fileUrl && lineNumberTemplate ? (
+                    fileUrl ? (
                       <a
                         className="hover:underline decoration-1"
-                        href={`${fileUrl}${lineNumberTemplate.replaceAll(
-                          "{{.LineNumber}}",
-                          lineNumber.toString()
-                        )}`}
+                        href={`${fileUrl+"#L" + lineNumber.toString()}`}
                       >
                         {lineNumber}
                       </a>
