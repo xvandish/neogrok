@@ -25,7 +25,6 @@ const router = createBrowserRouter(
       <Route path="/" lazy={() => import("./search-page")} />
       <Route path="/about" lazy={() => import("./about-page")} />
       <Route path="/syntax" lazy={() => import("./query-syntax-page")} />
-      <Route path="/repositories" lazy={() => import("./repositories-page")} />
 
       {/* livegrep compatability routes */}
       <Route path="/search/*" lazy={() => import("./livegrep-search")} />

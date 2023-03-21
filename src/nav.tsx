@@ -6,7 +6,6 @@ import {
 
 const navLinks = [
   ["/", "Search"],
-  ["/repositories", "Repositories"],
   ["/syntax", "Query Syntax"],
   ["/about", "About"],
 ] as const;
