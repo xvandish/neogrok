@@ -96,8 +96,8 @@ const useSearchOutcome = () => {
       return
     }
 
+      const abortController = new AbortController();
       async function doSearch() {
-        const abortController = new AbortController();
 
         try {
           const start = Date.now();
@@ -120,6 +120,8 @@ const useSearchOutcome = () => {
           })
           document.title = `${query} - neogrok`;
         } catch (error) {
+          if (abortController.signal.aborted) return;
+
           let message = "";
           if (error instanceof Error) message = error.message
           else message = String(error)
@@ -133,6 +135,11 @@ const useSearchOutcome = () => {
       }
 
       doSearch();
+      
+      return () => {
+        abortController.abort();
+      }
+
   }, [searchQuery]);
 
   return searchOutcome;
