@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { listResultSchema } from "./list-repositories-api";
 
 export type SearchQuery = Readonly<{
   query: string;
@@ -22,24 +23,23 @@ export const search = async (
   { query, contextLines, files, matchesPerShard, totalMatches }: SearchQuery,
   abortSignal: AbortSignal
 ): Promise<SearchResponse> => {
-  const body = JSON.stringify({
-    q: query,
-    opts: {
-      ChunkMatches: true,
-      NumContextLines: contextLines,
-      MaxDocDisplayCount: files,
-      ShardMaxMatchCount: matchesPerShard,
-      TotalMaxMatchCount: totalMatches,
-      IncludeRepoURLsAndLineFragments: false,
-    },
-  });
 
-  const response = await fetch("/api/search", {
+  const response = await fetch("/api/v2/search", {
     method: "POST",
     headers: {
       "content-type": "application/json",
     },
-    body,
+    body: JSON.stringify({
+      q: query,
+      SearchOpts: {
+        ChunkMatches: true,
+        NumContextLines: contextLines,
+        MaxDocDisplayCount: files,
+        ShardMaxMatchCount: matchesPerShard,
+        TotalMaxMatchCount: totalMatches,
+        IncludeRepoURLsAndLineFragments: false,
+      },
+    }),
     signal: abortSignal,
   });
 
@@ -61,7 +61,7 @@ export const search = async (
 
   return {
     kind: "success",
-    results: searchResultSchema.parse(await response.json()).Result,
+    results: searchResultSchemaV2.parse(await response.json()),
   };
 };
 
@@ -80,9 +80,8 @@ const locationSchema = z
     column: Column,
   }));
 
-const searchResultSchema = z.object({
-  Result: z
-    .object({
+
+const normalResultSchema = z.object({
       Duration: z.number(),
       FileCount: z.number(),
       MatchCount: z.number(),
@@ -154,11 +153,16 @@ const searchResultSchema = z.object({
         filesSkipped: FilesSkipped,
         files: Files,
       })
-    ),
-});
+    );
 
-export type SearchResults = z.infer<typeof searchResultSchema>["Result"];
-export type ResultFile = SearchResults["files"][number];
+  const searchResultSchemaV2 = z.object({
+    Results: normalResultSchema,
+    RepoResults: listResultSchema,
+    SearchType: z.enum(["default", "repo_only", "filename_only"])
+  })
+
+export type SearchResults = z.infer<typeof searchResultSchemaV2>;
+export type ResultFile = SearchResults["Results"]["files"][number];
 export type Chunks = ResultFile["chunks"][number];
 export type MatchRange = Chunks["matchRanges"][number];
 export type ContentLocation = z.infer<typeof locationSchema>;

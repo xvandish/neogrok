@@ -42,11 +42,11 @@ export const listRepositories = async (
 
   return {
     kind: "success",
-    results: listResultSchema.parse(await response.json()).List,
+    results: listResultSchema.parse(await response.json()),
   };
 };
 
-const statsSchema = z
+const listStatsSchema = z
   .object({
     // Not the number of total repositories, perhaps the number of git repositories?
     Repos: z.number(),
@@ -75,9 +75,7 @@ const statsSchema = z
   );
 
 const listResultSchema = z.object({
-  List: z
-    .object({
-      Stats: statsSchema,
+      Stats: listStatsSchema,
       Repos: z
         .array(
           z
@@ -115,7 +113,7 @@ const listResultSchema = z.object({
                 .transform(({ IndexTime }) => ({
                   lastIndexed: IndexTime,
                 })),
-              Stats: statsSchema,
+              Stats: listStatsSchema,
             })
             .transform(
               ({ Repository, IndexMetadata: { lastIndexed }, Stats }) => ({
@@ -131,8 +129,8 @@ const listResultSchema = z.object({
     .transform(({ Stats, Repos }) => ({
       stats: Stats,
       repositories: Repos,
-    })),
-});
+    }));
 
-export type ListResults = z.infer<typeof listResultSchema>["List"];
+export type ListResults = z.infer<typeof listResultSchema>;
 export type Repository = ListResults["repositories"][number];
+export { listResultSchema };

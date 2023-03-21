@@ -20,6 +20,7 @@ import {
   SearchResults as ApiSearchResults,
 } from "./search-api";
 import { useRouteSearchQuery } from "./use-route-search-query";
+import { RepositoriesList } from "./repositories-page";
 
 const SearchPage = () => {
   const { key: searchFormKey, keyChanged } = useSearchFormReactKey();
@@ -93,44 +94,46 @@ const useSearchOutcome = () => {
     if (query === undefined) {
       document.title = "neogrok";
       setSearchOutome({ kind: "none" });
-    } else {
-      document.title = `${query} - neogrok`;
-      const abortController = new AbortController();
-      const start = Date.now();
-      debouncedSearch({ query, ...rest }, abortController.signal)
-        .then((outcome) => {
-          startTransition(() => {
-            if (outcome.kind === "error") {
-              setSearchOutome((previous) => ({
-                ...outcome,
-                previousResults: computePreviousResults(previous),
-              }));
-            } else {
-              setSearchOutome({
-                kind: "success",
-                results: {
-                  ...outcome.results,
-                  requestDuration: Date.now() - start,
-                },
-              });
-            }
-          });
-        })
-        .catch((error) => {
-          if (error.name !== "AbortError") {
-            // eslint-disable-next-line no-console
-            console.error("Search failed", error);
-            startTransition(() =>
-              setSearchOutome((previous) => ({
-                kind: "error",
-                error: error.toString(),
-                previousResults: computePreviousResults(previous),
-              }))
-            );
-          }
-        });
-      return () => abortController.abort();
+      return
     }
+
+      async function doSearch() {
+        const abortController = new AbortController();
+
+        try {
+          const start = Date.now();
+          const response = await executeSearch({ query: query || "", ...rest }, abortController.signal);
+
+          if (response.kind === "error") {
+            setSearchOutome((prev) => ({
+              ...response,
+              previousResults: computePreviousResults(prev)
+            }))
+            return
+          }
+
+          setSearchOutome({
+            kind: "success",
+            results: {
+              ...response.results,
+              requestDuration: Date.now() - start,
+            }
+          })
+          document.title = `${query} - neogrok`;
+        } catch (error) {
+          let message = "";
+          if (error instanceof Error) message = error.message
+          else message = String(error)
+
+          setSearchOutome((prev) => ({
+            kind: 'error',
+            error: message,
+            previousResults: computePreviousResults(prev)
+          }))
+        }
+      }
+
+      doSearch();
   }, [searchQuery]);
 
   return searchOutcome;
@@ -146,33 +149,6 @@ const computePreviousResults = (previousOutcome: SearchOutcome) => {
   }
 };
 
-// TODO a more intelligent debounce strategy might be possible. Consider:
-// - due to trigram indexing, queries with less than 3 characters are expensive;
-//   debounce longer on short queries and little or not at all on longer ones?
-// - identifying when a search query has fewer than 3 characters is not actually
-//   trivial, due to "meta" expressions like repo/filename filtering
-// - the current 100ms is long enough to feel a bit laggy but short enough that
-//   even during "quick" typing we are still firing queries in the middle; 60wpm
-//   is 1 char every 200ms on average.  so what's the point?
-//
-// All of this applies the same to the repo list debounce.
-const debounceSearch = (rate: number): typeof executeSearch => {
-  let timeoutId: number | undefined;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    return new Promise((resolve, reject) => {
-      const ourTimeoutId = setTimeout(() => {
-        executeSearch(...args).then(resolve, reject);
-      }, rate);
-      const [, signal] = args;
-      signal.addEventListener("abort", () => clearTimeout(ourTimeoutId), {
-        once: true,
-      });
-      timeoutId = ourTimeoutId;
-    });
-  };
-};
-const debouncedSearch = debounceSearch(100);
 
 const SearchForm = ({ queryError }: { queryError?: string }) => {
   const [
@@ -573,22 +549,54 @@ const Lander = () => (
     </div>
   </>
 );
+
+// we have to be able to render n types of search results on the same page
+// file search results
+// repo search results
+// and code search results
+//
+// repo search results are only ever presented solo
+//
+// file and code search results may be mixed
+//
+// so, we need to find if, given a query, it is a repoOnly query -
+// if so, we need to call /list instead of /search
+
 // We need to memo over `searchState` so that we don't rerender every time a
 // character is typed into the search form; we need our rendering to happen
 // post-debouncing not pre-debouncing.
 // eslint-disable-next-line prefer-arrow-callback
 const SearchResults = memo(function SearchResults({
   results: {
-    fileCount,
-    matchCount,
-    filesSkipped,
-    duration,
-    files,
+    Results,
+    RepoResults,
+    SearchType,
     requestDuration,
   },
 }: {
   results: TimedSearchResults;
 }) {
+
+  if (SearchType === "repo_only") {
+    return <RepositoriesList results={RepoResults} />
+  } 
+
+  return <NormalSearchPage results={Results} requestDuration={requestDuration} /> 
+});
+
+const NormalSearchPage = ({
+  results: {
+      fileCount,
+      matchCount,
+      filesSkipped,
+      duration,
+      files,
+  },
+  requestDuration
+}: {
+  results: TimedSearchResults["Results"],
+  requestDuration: number
+}) => {
   const frontendMatchCount = files
     .flatMap(({ chunks }) => chunks)
     .reduce((a, { matchRanges }) => a + matchRanges.length, 0);
@@ -636,7 +644,7 @@ const SearchResults = memo(function SearchResults({
       })}
     </>
   );
-});
+};
 
 const SearchResultsFile = ({
   file: { repository, fileName, branches, language, chunks, version },
@@ -690,7 +698,11 @@ const SearchResultsFile = ({
     renderedFileName
   );
 
-  const linkedReponame = 
+  const linkedReponame = repoUrl ? (
+    <Link to={repoUrl}>{repository}</Link>
+  ) : (
+    repository
+  );
 
   const { matchSortOrder, fileMatchesCutoff } = useContext(Preferences);
   const nonFileNameMatches = chunks.filter(
@@ -787,7 +799,7 @@ const SearchResultsFile = ({
           URL in search results - either we do dumb stuff to the file template URL
           or we make a separate /list API request for each repo */}
           <span>
-            {repository}
+            {linkedReponame}
             <ChevronRight className="inline" size={16} />
             {linkedFilename}
           </span>

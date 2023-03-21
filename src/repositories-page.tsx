@@ -282,3 +282,5 @@ const Repository = ({
 // Trying to make these strings less obnoxiously long.
 const toISOStringWithoutMs = (d: Date) =>
   d.toISOString().replace(/\.\d{3}Z$/, "Z");
+
+export { RepositoriesList }
